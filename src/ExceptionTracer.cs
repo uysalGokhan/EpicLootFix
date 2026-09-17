@@ -3,20 +3,19 @@ using System;
 namespace EpicLootFix
 {
     /// <summary>
-    /// Diagnostic only. Unity's own error log for the GetJoyRightStickY
-    /// MissingMethodException shows an empty stack trace, so we can't tell from
-    /// LogOutput.log which method actually calls it. AppDomain.FirstChanceException
-    /// fires the instant an exception is thrown, before any unwinding/handling, so
-    /// its StackTrace should be fully populated even for exceptions Unity itself logs
-    /// poorly. This should tell us definitively where the call is really coming from -
-    /// static IL scans of every installed mod DLL found zero direct call sites for
-    /// GetJoyRightStickY, which points at a Harmony transpiler injecting the call into
-    /// a vanilla method at runtime (that wouldn't show up in any DLL's own IL).
+    /// Diagnostic only. Logs every exception the CLR raises (via
+    /// AppDomain.FirstChanceException, which fires before any catch/swallow
+    /// happens anywhere - including inside Unity's own UnityEvent.Invoke, which
+    /// catches and logs per-listener exceptions itself and does NOT always show up
+    /// clearly in LogOutput.log). This bypasses whatever layer has been hiding the
+    /// real cause of the Enchant/Augment "stuck on Cancel" symptom - the earlier,
+    /// narrower GetJoyRightStickY-only filter never caught it, and it turned out
+    /// unrelated to the actual bug.
     /// </summary>
     internal static class ExceptionTracer
     {
         private static int _loggedCount;
-        private const int MaxToLog = 5;
+        private const int MaxToLog = 40;
 
         internal static void Install()
         {
@@ -25,13 +24,17 @@ namespace EpicLootFix
 
         private static void OnFirstChanceException(object sender, System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs e)
         {
-            if (e.Exception is MissingMethodException mme && mme.Message.Contains("GetJoyRightStickY"))
+            // Skip the flood of already-diagnosed GetJoyRightStickY noise so anything
+            // new is easy to spot in the log.
+            if (e.Exception is MissingMethodException mme0 && mme0.Message.Contains("GetJoyRightStickY"))
+                return;
+
+            if (System.Threading.Interlocked.Increment(ref _loggedCount) <= MaxToLog)
             {
-                if (System.Threading.Interlocked.Increment(ref _loggedCount) <= MaxToLog)
-                {
-                    Plugin.Log?.LogWarning("[EpicLootFix] FirstChanceException full trace:\n" +
-                                           mme.StackTrace + "\n---TargetSite: " + mme.TargetSite + "---");
-                }
+                Plugin.Log?.LogWarning(
+                    $"[EpicLootFix] FirstChanceException: {e.Exception.GetType().FullName}: {e.Exception.Message}\n" +
+                    $"TargetSite: {e.Exception.TargetSite}\n" +
+                    $"StackTrace:\n{e.Exception.StackTrace}");
             }
         }
     }
