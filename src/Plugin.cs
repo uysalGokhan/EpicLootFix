@@ -38,6 +38,11 @@ namespace EpicLootFix
             Log.LogInfo("[EpicLootFix] ZInput.IsGamepadActive forced to false machine-wide " +
                         "(no real gamepad detected on this machine - works around the post-1.0.14 " +
                         "GetJoyRightStickY crash in EpicLoot's Enchanting UI).");
+
+            ExceptionTracer.Install();
+            Log.LogInfo("[EpicLootFix] Diagnostic exception tracer installed - static IL scans of every " +
+                        "installed mod found zero direct GetJoyRightStickY call sites, so this will log the " +
+                        "real caller the moment the exception is thrown.");
         }
     }
 }
