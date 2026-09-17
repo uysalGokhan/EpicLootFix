@@ -44,15 +44,25 @@ namespace EpicLootFix
     {
         private const string EpicLootAssemblyName = "EpicLoot";
 
+        // How many frames up to check. Harmony's patch trampoline can insert one or more
+        // of its own frames between this Prefix and the actual EpicLoot call site, so a
+        // single fixed frame index isn't reliable - walk a small window instead.
+        private const int MaxFramesToCheck = 8;
+
         public static bool Prefix(ref bool __result)
         {
             try
             {
-                var callerType = new StackFrame(1, false)?.GetMethod()?.DeclaringType;
-                if (callerType != null && callerType.Assembly.GetName().Name == EpicLootAssemblyName)
+                var trace = new StackTrace(1, false);
+                int depth = Math.Min(trace.FrameCount, MaxFramesToCheck);
+                for (int i = 0; i < depth; i++)
                 {
-                    __result = false;
-                    return false; // we've supplied the answer - skip the (currently buggy-for-us) original
+                    var declaringType = trace.GetFrame(i)?.GetMethod()?.DeclaringType;
+                    if (declaringType != null && declaringType.Assembly.GetName().Name == EpicLootAssemblyName)
+                    {
+                        __result = false;
+                        return false; // we've supplied the answer - skip the (currently buggy-for-us) original
+                    }
                 }
             }
             catch (Exception ex)
