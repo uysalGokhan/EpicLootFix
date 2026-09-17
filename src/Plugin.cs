@@ -35,8 +35,9 @@ namespace EpicLootFix
             var prefix = new HarmonyMethod(typeof(GamepadActiveScopeGuard).GetMethod(nameof(GamepadActiveScopeGuard.Prefix)));
             _harmony.Patch(targetMethod, prefix);
 
-            Log.LogInfo("[EpicLootFix] Gamepad-detection scope guard applied to ZInput.IsGamepadActive " +
-                        "(forces false only for EpicLoot's own calls).");
+            Log.LogInfo("[EpicLootFix] ZInput.IsGamepadActive forced to false machine-wide " +
+                        "(no real gamepad detected on this machine - works around the post-1.0.14 " +
+                        "GetJoyRightStickY crash in EpicLoot's Enchanting UI).");
         }
     }
 }
